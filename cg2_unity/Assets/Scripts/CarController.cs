@@ -11,14 +11,21 @@ using UnityEngine;
 
 public class CarController : MonoBehaviour
 {
-    [SerializeField] float speed = 1f;
-    [SerializeField] Vector3 displacement;
-    [SerializeField] float angularVelocity = 1f;
+    [SerializeField] float angularVelocity = 90f;
     [SerializeField] GameObject wheel;
     [SerializeField] float scale = 0.69f;
+    [SerializeField] float timeBetweenWaypoints = 1f;
+    [SerializeField] Vector3[] waypoints;
+    [SerializeField] Vector3[] wheelPositions;
 
+    // current waypoint
+    int currentWaypoint = 0;
+    float timeSinceLastWaypoint = 0f;
+
+    // gameobject list for the wheels
     GameObject[] wheels = new GameObject[4];
 
+    // wheel positions
     Vector3 frontAxis = new Vector3(2.1f, 0.85f, -2.8f);
     Vector3 backAxis = new Vector3(2.1f, 0.85f, 2.87f);
 
@@ -35,11 +42,13 @@ public class CarController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        waypoints[0] = Vector3.zero;
+
         // instantiate the wheels
-        wheels[0] = Instantiate(wheel, frontAxis, Quaternion.identity);
-        wheels[1] = Instantiate(wheel, Vector3.Scale(frontAxis, new Vector3(-1, 1, 1)), Quaternion.identity);
-        wheels[2] = Instantiate(wheel, backAxis, Quaternion.identity);
-        wheels[3] = Instantiate(wheel, Vector3.Scale(backAxis, new Vector3(-1, 1, 1)), Quaternion.identity);
+        for (int i = 0; i < 4; ++i)
+        {
+            wheels[i] = Instantiate(wheel, wheelPositions[i], Quaternion.identity);
+        }
 
         // get the meshes and vertices for the car
         mesh = GetComponentInChildren<MeshFilter>().mesh;
@@ -71,31 +80,37 @@ public class CarController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        // if the car has reached the current waypoint, move to the next one
+        timeSinceLastWaypoint += Time.deltaTime;
+
+        if (timeSinceLastWaypoint >= timeBetweenWaypoints)
+        {
+            currentWaypoint = (currentWaypoint + 1) % waypoints.Length;
+            timeSinceLastWaypoint = 0f;
+        }
+
         DoTransform();
     }
 
     void DoTransform()
     {
-        Matrix4x4 move = HW_Transforms.TranslationMat(displacement.x * Time.time,
-                                                      displacement.y * Time.time,
-                                                      displacement.z * Time.time);
+        Vector3 direction = Vector3.Lerp(waypoints[currentWaypoint], waypoints[(currentWaypoint + 1) % waypoints.Length], timeSinceLastWaypoint / timeBetweenWaypoints);
 
-        Matrix4x4 moveOrigin = HW_Transforms.TranslationMat(0, 0, 0);
+        Matrix4x4 move = HW_Transforms.TranslationMat(direction.x,
+                                                      direction.y,
+                                                      direction.z);
 
-        // Matrix4x4 moveObject = HW_Transforms.TranslationMat(rotationOrigin.x,
-        //                                                     rotationOrigin.y,
-        //                                                     rotationOrigin.z);
+        Vector3 goingTo = waypoints[(currentWaypoint + 1) % waypoints.Length] - waypoints[currentWaypoint];
+        float angle = Vector3.SignedAngle(Vector3.back, goingTo, Vector3.down);
 
-
-        // Combine all the matrices into a single one
-        // Matrix4x4 composite = move * moveObject * rotate * moveOrigin;
-
+        Matrix4x4 rotate = HW_Transforms.RotateMat(angle, AXIS.Y);
+        Matrix4x4 composite = move * rotate;
 
         for (int i = 0; i < baseVertices.Length; i++)
         {
             Vector4 tmp = new Vector4(baseVertices[i].x, baseVertices[i].y, baseVertices[i].z, 1);
 
-            newVertices[i] = move * tmp;
+            newVertices[i] = composite * tmp;
         }
 
         // Assign the new vertices to the mesh
@@ -104,16 +119,19 @@ public class CarController : MonoBehaviour
 
         // Do the same for the wheels, and scale them down
         Matrix4x4 scaleMat = HW_Transforms.ScaleMat(scale, scale, scale);
-        Matrix4x4 rotate = HW_Transforms.RotateMat(angularVelocity * Time.time, AXIS.X);
-        Matrix4x4 composite = move * rotate * scaleMat;
+        Matrix4x4 spin = HW_Transforms.RotateMat(angularVelocity * Time.time, AXIS.X);
+        Matrix4x4 spinComp = spin * scaleMat;
 
         for (int i = 0; i < 4; i++)
         {
+            Matrix4x4 pivot = HW_Transforms.TranslationMat(wheelPositions[i].x, wheelPositions[i].y, wheelPositions[i].z);
+            Matrix4x4 pivotBack = HW_Transforms.TranslationMat(-wheelPositions[i].x, -wheelPositions[i].y, -wheelPositions[i].z);
+
             for (int j = 0; j < wheelBaseVertices[i].Length; j++)
             {
                 Vector4 tmp = new Vector4(wheelBaseVertices[i][j].x, wheelBaseVertices[i][j].y, wheelBaseVertices[i][j].z, 1);
 
-                wheelNewVertices[i][j] = composite * tmp;
+                wheelNewVertices[i][j] = move * pivotBack * rotate * pivot * spinComp * tmp;
             }
 
             wheelMeshes[i].vertices = wheelNewVertices[i];

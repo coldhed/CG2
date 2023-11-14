@@ -200,11 +200,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3c67e88480ac64f359584f0de8fae39f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 1
-  displacement: {x: 0, y: 0, z: -2}
-  angularVelocity: 90
+  angularVelocity: 180
   wheel: {fileID: 6382961282309187107, guid: 93bda42d770bc45e985961549ac82e5c, type: 3}
   scale: 0.69
+  timeBetweenWaypoints: 1
+  waypoints:
+  - {x: 0, y: 0, z: 0}
+  - {x: 0, y: 0, z: -20}
+  - {x: 25, y: 0, z: -14}
+  - {x: -14, y: 0, z: 16}
+  wheelPositions:
+  - {x: 2.1, y: 0.85, z: -2.8}
+  - {x: -2.1, y: 0.85, z: -2.8}
+  - {x: 2.1, y: 0.85, z: 2.87}
+  - {x: -2.1, y: 0.85, z: 2.87}
 --- !u!1 &705507993
 GameObject:
   m_ObjectHideFlags: 0
